@@ -11,9 +11,12 @@ namespace HotelListing.API.Controllers
     {
         private readonly IAuthManager _authManager;
 
-        public AccountController(IAuthManager authManager)
+        private readonly ILogger<AccountController> _logger;
+
+        public AccountController(IAuthManager authManager, ILogger<AccountController> logger)
         {
             this._authManager = authManager;
+            _logger = logger;
         }
 
         // POST: api/Account/register
@@ -24,18 +27,28 @@ namespace HotelListing.API.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult> Register([FromBody] ApiUserDto apiUserDto)
         {
+            _logger.LogInformation($"Registration Attenpt for {apiUserDto.Email}");
             var errors = await _authManager.Register(apiUserDto);
 
-            if (errors.Any())
+            try
             {
-                foreach (var error in errors)
-                {
-                    ModelState.AddModelError(error.Code, error.Description);
-                }
-                return BadRequest(ModelState);
-            }
 
-            return Ok();
+                if (errors.Any())
+                {
+                    foreach (var error in errors)
+                    {
+                        ModelState.AddModelError(error.Code, error.Description);
+                    }
+                    return BadRequest(ModelState);
+                }
+
+                return Ok();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Something Went Wrong in the {nameof(Register)} - User Registration attempt for {apiUserDto.Email}");
+                return Problem($"Something Went Wrong in the {nameof(Register)}. Please contact support.", statusCode: 500);
+                    }
         }
 
         // POST: api/Account/login
@@ -46,15 +59,17 @@ namespace HotelListing.API.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult> Login([FromBody] LoginDto loginDto)
         {
-            var authResponse = await _authManager.Login(loginDto);
+            _logger.LogInformation($"Login Attenpt for {loginDto.Email}");
+                         var authResponse = await _authManager.Login(loginDto);
 
-            if (authResponse == null)
-            {
-                return Unauthorized();
-            }
+                if (authResponse == null)
+                {
+                    return Unauthorized();
+                }
 
-            return Ok(authResponse);
-        }
+                return Ok(authResponse);
+
+                   }
 
         // POST: api/Account/refreshtoken
         [HttpPost]
